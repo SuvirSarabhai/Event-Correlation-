@@ -1,8 +1,6 @@
 def update_state(state, decision):
+    # Update belief
     state["belief"] = decision["belief"]
-    state["confidence_history"].append(decision["confidence"])
-    state["step"] += 1
 
-    if decision["action"] == "COMMIT":
-        state["done"] = True
-
+    # Initialize confidence history safely
+    state.setdefault("confidence_history", []).append(decision["confidence"])

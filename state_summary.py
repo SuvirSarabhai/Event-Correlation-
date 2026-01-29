@@ -1,21 +1,27 @@
 def summarize_state(state):
     """
-    Create a compact, decision-focused summary of the agent's state
+    Create a compact, evidence-focused summary of the agent's state
     to be passed to the LLM for reasoning.
     """
 
-    # Take only the most recent observations (short-term memory)
-    recent_observations = state["observations"][-3:]
+    MAX_OBS = 3  # short-term memory window
 
-    # Extract just the signal values
-    recent_signals = [obs["signal"] for obs in recent_observations]
+    # Take the most recent observations (evidence, not conclusions)
+    recent_observations = state.get("observations", [])[-MAX_OBS:]
 
-    # Capture confidence trend (how belief is evolving)
-    confidence_trend = state["confidence_history"][-3:]
+    # Confidence trend (belief evolution)
+    confidence_history = state.get("confidence_history", [])[-MAX_OBS:]
 
     return {
-        "current_belief": state["belief"],
-        "recent_signals": recent_signals,
-        "confidence_trend": confidence_trend,
-        "step": state["step"]
+        # Evidence timeline (what happened)
+        "observations": recent_observations,
+
+        # Current stance of the agent
+        "belief": state.get("belief"),
+
+        # How confidence is trending
+        "confidence_history": confidence_history,
+
+        # Step count (helps LLM reason about progression)
+        "step": state.get("step", 0)
     }
