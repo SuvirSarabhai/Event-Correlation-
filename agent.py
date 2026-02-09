@@ -12,50 +12,32 @@ BELIEF_RANK = {
 
 def agent_step(state, signal):
     """
-    Stateful incident reasoning agent.
-
-    DESIGN RULES:
-    - Agent NEVER persists anything
-    - Agent NEVER owns _committed / _persisted
-    - Commit is NOT terminal
-    - Agent keeps reasoning after commit
+    Pure reasoning engine.
+    - NO database writes
+    - NO persistence flags
+    - Only returns decision
     """
 
-    # -----------------------------
-    # Visibility
-    # -----------------------------
     obs_count = len(state.get("observations", []))
     print(f"[AGENT] Observations so far: {obs_count}")
 
-    # -----------------------------
     # Step counter
-    # -----------------------------
     state["step"] = state.get("step", 0) + 1
 
-    # -----------------------------
-    # Summarize state for LLM
-    # -----------------------------
+    # Summarize for LLM
     summary = summarize_state(state)
-
-    # -----------------------------
-    # LLM reasoning
-    # -----------------------------
     decision = reason_with_llm(summary)
 
-    # -----------------------------
-    # Harden LLM output
-    # -----------------------------
+    # Harden output
     decision.setdefault("belief", state.get("belief", "STABLE"))
     decision.setdefault("confidence", 0.5)
     decision.setdefault("reasoning", "No reasoning provided")
 
-    # Remove routing junk
+    # Strip routing junk
     decision.pop("decision", None)
     decision.pop("incident_id", None)
 
-    # -----------------------------
-    # Belief sanitization
-    # -----------------------------
+    # Sanitize beliefs
     prev_belief = state.get("belief", "STABLE")
     if prev_belief not in VALID_BELIEFS:
         prev_belief = "STABLE"
@@ -66,27 +48,18 @@ def agent_step(state, signal):
         llm_belief = prev_belief
         decision["reasoning"] += " | Invalid belief ignored."
 
-    # Prevent downgrade
     if BELIEF_RANK[llm_belief] < BELIEF_RANK[prev_belief]:
         decision["belief"] = prev_belief
         decision["reasoning"] += " | Belief downgrade prevented."
     else:
         decision["belief"] = llm_belief
 
-    # -----------------------------
     # Update state
-    # -----------------------------
     update_state(state, decision)
 
-    # -----------------------------
     # Deterministic commit rule
-    # -----------------------------
     observations = state.get("observations", [])
-
-    severe_seen = any(
-        obs["signal"]["severity"] == "Severe"
-        for obs in observations
-    )
+    severe_seen = any(o["signal"]["severity"] == "Severe" for o in observations)
 
     should_commit = (
         len(observations) >= 2
@@ -95,19 +68,13 @@ def agent_step(state, signal):
         and decision["belief"] in {"UNSTABLE", "CRITICAL"}
     )
 
-    # -----------------------------
-    # Commit decision (NO persistence)
-    # -----------------------------
     if should_commit:
         decision["action"] = "COMMIT"
         decision["reasoning"] += " | Commit triggered by escalation rule."
-        print("[AGENT] COMMIT condition met")
+        print("[AGENT] COMMIT triggered")
     else:
         decision["action"] = "CONTINUE"
 
-    # -----------------------------
-    # Final visibility
-    # -----------------------------
     print(
         f"[AGENT] belief={decision['belief']} "
         f"conf={decision['confidence']} "

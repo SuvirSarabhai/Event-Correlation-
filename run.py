@@ -121,13 +121,19 @@ def run():
         print(f"REASONING   : {decision.get('reasoning')}")
 
         # --------------------------------------------------
+        # FIX: Set state["done"] when action is COMMIT
+        # --------------------------------------------------
+        if decision.get('action') == 'COMMIT':
+            state["done"] = True
+
+        # --------------------------------------------------
         # Commit once
         # --------------------------------------------------
         if state.get("done") and not state.get("_committed"):
             summary = extract_incident_summary(state, incident_id)
             save_incident_summary(summary)
             state["_committed"] = True
-            print(f"\n[COMMIT] Incident committed: {incident_id}")
+            print(f"\n[COMMIT] ✅ Incident saved to incident_memory: {incident_id}")
 
         # --------------------------------------------------
         # Persist
